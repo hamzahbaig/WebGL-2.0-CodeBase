@@ -23,7 +23,6 @@ var initializeEvents = (gl, callback, callback2, zoom) => {
   });
   canvas.addEventListener("mousewheel", (e) => {
     if (zoom) {
-      console.log(e.deltaY);
       zoom(e.deltaY);
     }
   });

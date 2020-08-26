@@ -123,6 +123,7 @@ initializeEvents(
   gl,
   (startX, startY, endX, endY) => {
     var diff = getDiff(startX, startY, endX, endY);
+    console.log(startX, startY, endX, endY);
     currSX += diff.x;
     currSY += diff.y;
     currEX += diff.x;

@@ -78,6 +78,14 @@ class WebGLUtils {
     };
   };
 
+  getGPUCoordsTemp = (obj, width, height) => {
+    return {
+      startX: -1.0 + (obj.startX / width) * 2,
+      startY: -1.0 + (obj.startY / height) * 2,
+      endX: -1.0 + (obj.endX / width) * 2,
+      endY: -1.0 + (obj.endY / height) * 2,
+    };
+  };
   // Input -> -1.0 -> 1.0
   getGPUCoords0To2 = (obj) => {
     return {
@@ -157,5 +165,30 @@ class WebGLUtils {
       x2: startX + renderableW,
       y2: startY + renderableH,
     };
+  };
+
+  checkPoint = (h, k, a, b, x, y) => {
+    let p =
+      Math.pow(x - h, 2) / Math.pow(a, 2) + Math.pow(y - k, 2) / Math.pow(b, 2);
+    return p;
+  };
+  // centerOfEclipse1,
+  // centerOfEclipse2,
+  // widthOfEclipse,
+  // heightOfEclipse,
+  randomWaferDataWithBinNum = (h, k, a, b, bins) => {
+    let data = [];
+    for (let x = h - a * 2; x < h + a * 2; x++) {
+      for (let y = k - b * 2; y < k + b * 2; y++) {
+        if (this.checkPoint(h, k, a, b, x, y) < 1.0) {
+          data.push({
+            x: x,
+            y: y,
+            hardBin: Math.floor(Math.random() * bins.length),
+          });
+        }
+      }
+    }
+    return data;
   };
 }
