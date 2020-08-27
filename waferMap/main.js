@@ -18,8 +18,8 @@ let gridOuterLines = [
 ];
 let centerOfEclipse1 = 135;
 let centerOfEclipse2 = 250;
-let widthOfEclipse = 8;
-let heightOfEclipse = 16;
+let widthOfEclipse = 6;
+let heightOfEclipse = 12;
 let width = 64;
 let height = 32;
 
@@ -55,10 +55,36 @@ void main() {
 let program = utils.getProgram(gl, vertexShader, fragmentShader);
 
 // --------------- HELPER FUNCTIONS ---------------------------
+// This function only returns the dyes which are visible on canvas
+const returnInViewPoints = (coords) => {
+  let renderingdata = [];
+  for (let i = 0; i < coords.length - 12; i += 12) {
+    let rect = [];
+    for (let j = i; j < i + 12; j++) {
+      if (coords[j] <= 1.0 && coords[j] >= -1.0) {
+        rect.push(coords[j]);
+      } else {
+        rect = [];
+        break;
+      }
+    }
+    renderingdata.push(...rect);
+  }
+  return renderingdata;
+};
+
 // This function is used to draw any shape provided coordinates, color and drawing mode.
-let drawShape = (coords, color, drawingMode) => {
+const drawShape = (coords, color, drawingMode) => {
+  let renderingdata = [];
+  // only render points which are in view
+  if (drawingMode == gl.TRIANGLES) {
+    renderingdata = returnInViewPoints(coords);
+  } else {
+    renderingdata = [...coords];
+  }
+
   // Step 3
-  let data = new Float32Array(coords);
+  let data = new Float32Array(renderingdata);
   let buffer = utils.createAndBindBuffer(gl.ARRAY_BUFFER, gl.STATIC_DRAW, data);
 
   // Step 4
@@ -77,8 +103,8 @@ let drawShape = (coords, color, drawingMode) => {
   gl.uniform4fv(reticleColor, color);
 
   // Step 5
-  // gl.drawArrays(mode, first, count)
-  gl.drawArrays(drawingMode, 0, coords.length / 2);
+
+  gl.drawArrays(drawingMode, 0, renderingdata.length / 2);
 };
 
 // Function is used to draw outer grid for wafer map
