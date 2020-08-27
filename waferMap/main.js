@@ -1,3 +1,4 @@
+"use strict";
 // Setting Up WEBGL 2.0
 let utils = new WebGLUtils();
 let canvas = document.getElementById("canvas");
@@ -10,12 +11,8 @@ gl.clear(gl.DEPTH_BUFFER_BIT | gl.COLOR_BUFFER_BIT);
 // Initialize Variable
 let reticleMask = [];
 let devices = [];
-let gridOuterLines = [
-  { startX: 0, startY: 0, endX: 0, endY: canvas.height },
-  { startX: 0, startY: canvas.height, endX: canvas.width, endY: canvas.height },
-  { startX: canvas.width, startY: canvas.height, endX: canvas.width, endY: 0 },
-  { startX: canvas.width, startY: 0, endX: 0, endY: 0 },
-];
+let zoomRatio = 0.1;
+
 let centerOfEclipse1 = 135;
 let centerOfEclipse2 = 250;
 let widthOfEclipse = 6;
@@ -53,40 +50,26 @@ void main() {
 
 // Step 2: Creating Program
 let program = utils.getProgram(gl, vertexShader, fragmentShader);
-
 // --------------- HELPER FUNCTIONS ---------------------------
-// This function only returns the dyes which are visible on canvas
-const returnInViewPoints = (coords) => {
-  let renderingdata = [];
-  for (let i = 0; i < coords.length - 12; i += 12) {
-    let rect = [];
-    for (let j = i; j < i + 12; j++) {
-      if (coords[j] <= 1.0 && coords[j] >= -1.0) {
-        rect.push(coords[j]);
-      } else {
-        rect = [];
-        break;
-      }
-    }
-    renderingdata.push(...rect);
-  }
-  return renderingdata;
-};
-
 // This function is used to draw any shape provided coordinates, color and drawing mode.
 const drawShape = (coords, color, drawingMode) => {
   let renderingdata = [];
   // only render points which are in view
   if (drawingMode == gl.TRIANGLES) {
-    renderingdata = returnInViewPoints(coords);
+    renderingdata = utils.returnInViewPoints(coords);
   } else {
     renderingdata = [...coords];
   }
 
+  drawRadarView(renderingdata);
   // Step 3
   let data = new Float32Array(renderingdata);
-  let buffer = utils.createAndBindBuffer(gl.ARRAY_BUFFER, gl.STATIC_DRAW, data);
-
+  let buffer = utils.createAndBindBuffer(
+    gl,
+    gl.ARRAY_BUFFER,
+    gl.STATIC_DRAW,
+    data
+  );
   // Step 4
   gl.useProgram(program);
   utils.linkGPUAndCPU(
@@ -106,102 +89,17 @@ const drawShape = (coords, color, drawingMode) => {
 
   gl.drawArrays(drawingMode, 0, renderingdata.length / 2);
 };
-
-// Function is used to draw outer grid for wafer map
-gridDrawing = (gridOuterLines) => {
-  for (let i = 0; i < gridOuterLines.length; i++) {
-    let v = utils.getGPUCoords(gridOuterLines[i]);
-    let lineCoords = utils.prepareRectVec2(v.startX, v.startY, v.endX, v.endY);
-    drawShape(lineCoords, [0.0, 0.0, 0.0, 1.0], gl.LINES);
-  }
-};
-
-// This function is to convert wafer Map test data into GPU data
-const waferMapDataToGPU = (waferMaptTestData) => {
-  let reticleMask = [];
-  let dontChangeX = waferMaptTestData[0].x;
-  let dontChangeY = waferMaptTestData[0].y;
-  let offsetX = 0,
-    offsetY = 0;
-  for (let i = 0; i < waferMaptTestData.length; i++) {
-    if (
-      waferMaptTestData[i].x == dontChangeX &&
-      waferMaptTestData[i].y >= dontChangeY
-    ) {
-      updateCoords(
-        reticleMask,
-        waferMaptTestData[i].x + offsetX,
-        waferMaptTestData[i].y,
-        offsetY
-      );
-      offsetY += height;
-    } else if (
-      waferMaptTestData[i].x != dontChangeX &&
-      waferMaptTestData[i].y < dontChangeY
-    ) {
-      dontChangeX = waferMaptTestData[i].x;
-      offsetY = (waferMaptTestData[i].y - dontChangeY) * height;
-      offsetX += width;
-      updateCoords(
-        reticleMask,
-        waferMaptTestData[i].x + offsetX,
-        waferMaptTestData[i].y,
-        offsetY
-      );
-      offsetY += height;
-    } else if (
-      waferMaptTestData[i].x == dontChangeX &&
-      waferMaptTestData[i].y < dontChangeY
-    ) {
-      updateCoords(
-        reticleMask,
-        waferMaptTestData[i].x + offsetX,
-        waferMaptTestData[i].y,
-        offsetY
-      );
-      offsetY += height;
-    } else if (
-      waferMaptTestData[i].x != dontChangeX &&
-      waferMaptTestData[i].y >= dontChangeY
-    ) {
-      dontChangeX = waferMaptTestData[i].x;
-      offsetY = 0;
-      offsetX += width;
-      updateCoords(
-        reticleMask,
-        waferMaptTestData[i].x + offsetX,
-        waferMaptTestData[i].y,
-        offsetY
-      );
-      offsetY += height;
-    }
-  }
-  return reticleMask;
-};
-
-// This function is to update the Coords.
-let updateCoords = (reticleMask, x, y, offsetY) => {
-  let startX = x,
-    startY = y + offsetY;
-  let obj = {
-    startX,
-    startY,
-    endX: startX + width,
-    endY: startY + height,
-  };
-  let v = utils.getGPUCoords(obj);
-  let reticleCoords = utils.prepareRectVec2(v.startX, v.startY, v.endX, v.endY);
-  reticleMask.push(...reticleCoords);
-};
-
-let getDiff = (startX, startY, endX, endY) => {
+const getDiff = (startX, startY, endX, endY) => {
   var obj = {
     startX: startX,
     startY: startY,
     endX: endX,
     endY,
   };
-  var v = utils.getGPUCoords(obj); //-1 to +1
+  var v = utils.getGPUCoords(obj, {
+    width: gl.canvas.width,
+    height: gl.canvas.height,
+  }); //-1 to +1
   v = utils.getGPUCoords0To2(v); //0 to 2
   var diffX = v.endX - v.startX;
   var diffY = v.endY - v.startY;
@@ -211,64 +109,71 @@ let getDiff = (startX, startY, endX, endY) => {
   };
 };
 
+const updateReticlesOnPanning = (reticle, diff) => {
+  for (let i = 0; i < reticle.length; i++) {
+    if (i % 2 == 0) {
+      reticle[i] += diff.x;
+    } else {
+      reticle[i] += diff.y;
+    }
+  }
+  return reticle;
+};
+
+const zoomOutHelper = (reticleMask) => {
+  for (let i = 0; i < reticleMask.length; i++) {
+    if (i % 2 == 0) {
+      reticleMask[i] -= reticleMask[i] * zoomRatio;
+    } else {
+      reticleMask[i] -= reticleMask[i] * zoomRatio;
+    }
+  }
+  return reticleMask;
+};
+
+const zoomInHelper = (reticleMask) => {
+  for (let i = 0; i < reticleMask.length; i++) {
+    if (i % 2 == 0) {
+      reticleMask[i] += reticleMask[i] * zoomRatio;
+    } else {
+      reticleMask[i] += reticleMask[i] * zoomRatio;
+    }
+  }
+  return reticleMask;
+};
+
 // ----------------- FUNCTION CALLING ---------------------
 // reticle Drawing
-reticleMask = waferMapDataToGPU(waferMaptTestData);
+reticleMask = utils.waferMapDataToGPU(waferMaptTestData, width, height, {
+  width: gl.canvas.width,
+  height: gl.canvas.height,
+});
+inViewWafer = [...reticleMask]
 let lastReticleMask = [...reticleMask];
 drawShape(reticleMask, [1.0, 0.0, 0.0, 1.0], gl.TRIANGLES);
-
-// grid Drawing
-gridDrawing(gridOuterLines);
-
+// ------------------- MOUSE EVENTS HANDLER -----------------
 initializeEvents(
   gl,
   (startX, startY, endX, endY) => {
     var diff = getDiff(startX, startY, endX, endY);
-    for (let i = 0; i < reticleMask.length; i++) {
-      if (i % 2 == 0) {
-        reticleMask[i] += diff.x;
-      } else {
-        reticleMask[i] += diff.y;
-      }
-    }
+    reticleMask = updateReticlesOnPanning(reticleMask, diff);
     drawShape(reticleMask, [1.0, 0.0, 0.0, 1.0], gl.TRIANGLES);
-    gridDrawing(gridOuterLines);
     reticleMask = [...lastReticleMask];
   },
   (startX, startY, endX, endY) => {
     var diff = getDiff(startX, startY, endX, endY);
-    for (let i = 0; i < reticleMask.length; i++) {
-      if (i % 2 == 0) {
-        lastReticleMask[i] += diff.x;
-      } else {
-        lastReticleMask[i] += diff.y;
-      }
-    }
-
+    lastReticleMask = updateReticlesOnPanning(lastReticleMask, diff);
     reticleMask = [...lastReticleMask];
   },
   (deltaY) => {
     if (deltaY > 0) {
       //zoom out
-      for (let i = 0; i < reticleMask.length; i++) {
-        if (i % 2 == 0) {
-          reticleMask[i] -= reticleMask[i] * 0.1;
-        } else {
-          reticleMask[i] -= reticleMask[i] * 0.1;
-        }
-      }
+      reticleMask = zoomOutHelper(reticleMask);
     } else {
       //zoom in
-      for (let i = 0; i < reticleMask.length; i++) {
-        if (i % 2 == 0) {
-          reticleMask[i] += reticleMask[i] * 0.1;
-        } else {
-          reticleMask[i] += reticleMask[i] * 0.1;
-        }
-      }
+      reticleMask = zoomInHelper(reticleMask);
     }
     drawShape(reticleMask, [1.0, 0.0, 0.0, 1.0], gl.TRIANGLES);
-    gridDrawing(gridOuterLines);
     lastReticleMask = [...reticleMask];
   }
 );

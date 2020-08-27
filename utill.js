@@ -30,7 +30,7 @@ class WebGLUtils {
     return program;
   };
 
-  createAndBindBuffer = (bufferType, typeOfDrawing, data) => {
+  createAndBindBuffer = (gl, bufferType, typeOfDrawing, data) => {
     var buffer = gl.createBuffer(); // allocates some memory in gpu
     // two parameters of bindBuffer
     // target: is channel for sending data from CPU to GPU
@@ -69,23 +69,15 @@ class WebGLUtils {
   // GPU coordinates range from 1.0 to 1.0
   // I made the range 0.0 -> 2.0
   // now subtract
-  getGPUCoords = (obj) => {
+  getGPUCoords = (obj, canvas) => {
     return {
-      startX: -1.0 + (obj.startX / gl.canvas.width) * 2,
-      startY: -1.0 + (obj.startY / gl.canvas.height) * 2,
-      endX: -1.0 + (obj.endX / gl.canvas.width) * 2,
-      endY: -1.0 + (obj.endY / gl.canvas.height) * 2,
+      startX: -1.0 + (obj.startX / canvas.width) * 2,
+      startY: -1.0 + (obj.startY / canvas.height) * 2,
+      endX: -1.0 + (obj.endX / canvas.width) * 2,
+      endY: -1.0 + (obj.endY / canvas.height) * 2,
     };
   };
 
-  getGPUCoordsTemp = (obj, width, height) => {
-    return {
-      startX: -1.0 + (obj.startX / width) * 2,
-      startY: -1.0 + (obj.startY / height) * 2,
-      endX: -1.0 + (obj.endX / width) * 2,
-      endY: -1.0 + (obj.endY / height) * 2,
-    };
-  };
   // Input -> -1.0 -> 1.0
   getGPUCoords0To2 = (obj) => {
     return {
@@ -190,5 +182,118 @@ class WebGLUtils {
       }
     }
     return data;
+  };
+
+  // This function only returns the dyes which are visible on canvas
+  returnInViewPoints = (coords) => {
+    let renderingdata = [];
+    for (let i = 0; i < coords.length - 12; i += 12) {
+      let rect = [];
+      for (let j = i; j < i + 12; j++) {
+        if (coords[j] <= 1.0 && coords[j] >= -1.0) {
+          rect.push(coords[j]);
+        } else {
+          rect = [];
+          break;
+        }
+      }
+      renderingdata.push(...rect);
+    }
+    return renderingdata;
+  };
+
+  // This function is to convert wafer Map test data into GPU data
+  waferMapDataToGPU = (waferMaptTestData, width, height, canvas) => {
+    let reticleMask = [];
+    let dontChangeX = waferMaptTestData[0].x;
+    let dontChangeY = waferMaptTestData[0].y;
+    let offsetX = 0,
+      offsetY = 0;
+    for (let i = 0; i < waferMaptTestData.length; i++) {
+      if (
+        waferMaptTestData[i].x == dontChangeX &&
+        waferMaptTestData[i].y >= dontChangeY
+      ) {
+        this.updateCoords(
+          reticleMask,
+          waferMaptTestData[i].x + offsetX,
+          waferMaptTestData[i].y,
+          offsetY,
+          width,
+          height,
+          canvas
+        );
+        offsetY += height;
+      } else if (
+        waferMaptTestData[i].x != dontChangeX &&
+        waferMaptTestData[i].y < dontChangeY
+      ) {
+        dontChangeX = waferMaptTestData[i].x;
+        offsetY = (waferMaptTestData[i].y - dontChangeY) * height;
+        offsetX += width;
+        this.updateCoords(
+          reticleMask,
+          waferMaptTestData[i].x + offsetX,
+          waferMaptTestData[i].y,
+          offsetY,
+          width,
+          height,
+          canvas
+        );
+        offsetY += height;
+      } else if (
+        waferMaptTestData[i].x == dontChangeX &&
+        waferMaptTestData[i].y < dontChangeY
+      ) {
+        this.updateCoords(
+          reticleMask,
+          waferMaptTestData[i].x + offsetX,
+          waferMaptTestData[i].y,
+          offsetY,
+          width,
+          height,
+          canvas
+        );
+        offsetY += height;
+      } else if (
+        waferMaptTestData[i].x != dontChangeX &&
+        waferMaptTestData[i].y >= dontChangeY
+      ) {
+        dontChangeX = waferMaptTestData[i].x;
+        offsetY = 0;
+        offsetX += width;
+        this.updateCoords(
+          reticleMask,
+          waferMaptTestData[i].x + offsetX,
+          waferMaptTestData[i].y,
+          offsetY,
+          width,
+          height,
+          canvas
+        );
+        offsetY += height;
+      }
+    }
+    return reticleMask;
+  };
+
+  // This function is to update the Coords.
+  updateCoords = (reticleMask, x, y, offsetY, width, height, canvas) => {
+    let startX = x,
+      startY = y + offsetY;
+    let obj = {
+      startX,
+      startY,
+      endX: startX + width,
+      endY: startY + height,
+    };
+    let v = this.getGPUCoords(obj, canvas);
+    let reticleCoords = this.prepareRectVec2(
+      v.startX,
+      v.startY,
+      v.endX,
+      v.endY
+    );
+    reticleMask.push(...reticleCoords);
   };
 }
