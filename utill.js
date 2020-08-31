@@ -78,6 +78,12 @@ class WebGLUtils {
     };
   };
 
+  getHTMLCoords = (startX, startY, canvas) => {
+    return {
+      x: ((startX + 1.0) / 2) * canvas.width,
+      y: ((startY + 1.0) / 2) * canvas.height,
+    };
+  };
   // Input -> -1.0 -> 1.0
   getGPUCoords0To2 = (obj) => {
     return {
@@ -176,7 +182,7 @@ class WebGLUtils {
           data.push({
             x: x,
             y: y,
-            hardBin: Math.floor(Math.random() * bins.length),
+            hardBin: Math.floor(Math.random() * 999),
           });
         }
       }
@@ -187,7 +193,7 @@ class WebGLUtils {
   // This function only returns the dyes which are visible on canvas
   returnInViewPoints = (coords) => {
     let renderingdata = [];
-    for (let i = 0; i < coords.length - 12; i += 12) {
+    for (let i = 0; i < coords.length - 11; i += 12) {
       let rect = [];
       for (let j = i; j < i + 12; j++) {
         if (coords[j] <= 1.0 && coords[j] >= -1.0) {
@@ -205,6 +211,7 @@ class WebGLUtils {
   // This function is to convert wafer Map test data into GPU data
   waferMapDataToGPU = (waferMaptTestData, width, height, canvas) => {
     let reticleMask = [];
+    let canvasUpdatedCoord = [];
     let dontChangeX = waferMaptTestData[0].x;
     let dontChangeY = waferMaptTestData[0].y;
     let offsetX = 0,
@@ -216,6 +223,7 @@ class WebGLUtils {
       ) {
         this.updateCoords(
           reticleMask,
+          canvasUpdatedCoord,
           waferMaptTestData[i].x + offsetX,
           waferMaptTestData[i].y,
           offsetY,
@@ -233,6 +241,7 @@ class WebGLUtils {
         offsetX += width;
         this.updateCoords(
           reticleMask,
+          canvasUpdatedCoord,
           waferMaptTestData[i].x + offsetX,
           waferMaptTestData[i].y,
           offsetY,
@@ -247,6 +256,7 @@ class WebGLUtils {
       ) {
         this.updateCoords(
           reticleMask,
+          canvasUpdatedCoord,
           waferMaptTestData[i].x + offsetX,
           waferMaptTestData[i].y,
           offsetY,
@@ -264,6 +274,7 @@ class WebGLUtils {
         offsetX += width;
         this.updateCoords(
           reticleMask,
+          canvasUpdatedCoord,
           waferMaptTestData[i].x + offsetX,
           waferMaptTestData[i].y,
           offsetY,
@@ -274,13 +285,26 @@ class WebGLUtils {
         offsetY += height;
       }
     }
-    return reticleMask;
+    return {
+      reticleMask: reticleMask,
+      canvasUpdatedCoord: canvasUpdatedCoord,
+    };
   };
 
   // This function is to update the Coords.
-  updateCoords = (reticleMask, x, y, offsetY, width, height, canvas) => {
+  updateCoords = (
+    reticleMask,
+    canvasUpdatedCoord,
+    x,
+    y,
+    offsetY,
+    width,
+    height,
+    canvas
+  ) => {
     let startX = x,
       startY = y + offsetY;
+    canvasUpdatedCoord.push({ x: startX, y: startY });
     let obj = {
       startX,
       startY,

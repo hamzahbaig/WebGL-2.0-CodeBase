@@ -83,7 +83,14 @@ const drawRadar = (coords, color, drawingMode) => {
 };
 
 const drawRadarView = (inViewData) => {
-//   drawRadar(inViewData, [1.0, 0.0, 0.0, 0.5], radarGl.TRIANGLES);
+  if (inViewData) {
+    startX = inViewData[0]
+    startY = inViewData[1]
+    endX = inViewData[inViewData.length-2]
+    endY = inViewData[inViewData.length-1]
+    v = radarUtils.prepareRectVec2(startX,startY,endX,endY)
+    // drawRadar(v, [1.0, 1.0, 0.0, 0.5], radarGl.TRIANGLES);
+  }
 };
 
 // reticle Drawing

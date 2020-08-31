@@ -2,7 +2,7 @@
 // Setting Up WEBGL 2.0
 let utils = new WebGLUtils();
 let canvas = document.getElementById("canvas");
-canvas.width = 1000;
+canvas.width = 900;
 canvas.height = 900;
 let gl = utils.getGlContext(canvas);
 gl.clearColor(1.0, 1.0, 1.0, 0.5);
@@ -10,15 +10,17 @@ gl.clear(gl.DEPTH_BUFFER_BIT | gl.COLOR_BUFFER_BIT);
 
 // Initialize Variable
 let reticleMask = [];
+let canvasUpdatedCoord = [];
 let devices = [];
 let zoomRatio = 0.1;
 
-let centerOfEclipse1 = 135;
+let centerOfEclipse1 = 100;
 let centerOfEclipse2 = 250;
-let widthOfEclipse = 6;
-let heightOfEclipse = 12;
-let width = 64;
-let height = 32;
+let widthOfEclipse = 400;
+let heightOfEclipse =800;
+let dieWidth = 64;
+let dieHeight = 32;
+let dieColor = [1.0, 0.0, 0.0, 0.5];
 
 // Generating Wafer Map Test Data..
 let waferMaptTestData = utils.randomWaferDataWithBinNum(
@@ -50,6 +52,7 @@ void main() {
 
 // Step 2: Creating Program
 let program = utils.getProgram(gl, vertexShader, fragmentShader);
+
 // --------------- HELPER FUNCTIONS ---------------------------
 // This function is used to draw any shape provided coordinates, color and drawing mode.
 const drawShape = (coords, color, drawingMode) => {
@@ -61,7 +64,10 @@ const drawShape = (coords, color, drawingMode) => {
     renderingdata = [...coords];
   }
 
-  drawRadarView(renderingdata);
+  renderText(renderingdata, waferMaptTestData);
+
+
+  // drawRadarView(renderingdata);
   // Step 3
   let data = new Float32Array(renderingdata);
   let buffer = utils.createAndBindBuffer(
@@ -144,20 +150,23 @@ const zoomInHelper = (reticleMask) => {
 
 // ----------------- FUNCTION CALLING ---------------------
 // reticle Drawing
-reticleMask = utils.waferMapDataToGPU(waferMaptTestData, width, height, {
+let obj = utils.waferMapDataToGPU(waferMaptTestData, dieWidth, dieHeight, {
   width: gl.canvas.width,
   height: gl.canvas.height,
 });
-inViewWafer = [...reticleMask]
+reticleMask = obj.reticleMask;
+canvasUpdatedCoord = obj.canvasUpdatedCoord;
+// inViewWafer = [...reticleMask]
 let lastReticleMask = [...reticleMask];
-drawShape(reticleMask, [1.0, 0.0, 0.0, 1.0], gl.TRIANGLES);
+drawShape(reticleMask, dieColor, gl.TRIANGLES);
+
 // ------------------- MOUSE EVENTS HANDLER -----------------
 initializeEvents(
   gl,
   (startX, startY, endX, endY) => {
     var diff = getDiff(startX, startY, endX, endY);
     reticleMask = updateReticlesOnPanning(reticleMask, diff);
-    drawShape(reticleMask, [1.0, 0.0, 0.0, 1.0], gl.TRIANGLES);
+    drawShape(reticleMask, dieColor, gl.TRIANGLES);
     reticleMask = [...lastReticleMask];
   },
   (startX, startY, endX, endY) => {
@@ -173,7 +182,7 @@ initializeEvents(
       //zoom in
       reticleMask = zoomInHelper(reticleMask);
     }
-    drawShape(reticleMask, [1.0, 0.0, 0.0, 1.0], gl.TRIANGLES);
+    drawShape(reticleMask, dieColor, gl.TRIANGLES);
     lastReticleMask = [...reticleMask];
   }
 );
